@@ -22,6 +22,8 @@ The configuration file is in JSON format. The file should be named config.json a
 ```
 ## Usage
 The bot will automatically update the status of the controller and ATIS in the specified channel. The bot will update the status every 1 minutes.
+### Run as service
+You can run the bot as a service using systemd. or Windows service manager of your choice to make this bot easier to manage.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
