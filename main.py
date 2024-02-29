@@ -196,10 +196,18 @@ async def on_ready():
             if prev['atis_code'] != curr['atis_code']:
                 atis_updated = True
                 break
+        controller_updated = False
+        for prev, curr in zip(controllers, vt_controllers):
+            if prev['frequency'] != curr['frequency']:
+                controller_updated = True
+                break
+            elif prev['text_atis'] != curr['text_atis']:
+                controller_updated = True
+                break
         controllers = vt_controllers
         atis = vt_atis
         # If NewControllers or Controller Offline
-        if new_controllers or offline_controllers or initial:
+        if new_controllers or offline_controllers or initial or controller_updated :
             # Delete Previous Embed
             await con_channel.purge(limit=1)
             embed = get_controller_embed(controllers)
