@@ -164,7 +164,7 @@ async def on_ready():
     print(con_channel)
     atis_channel = client.get_channel(ATIS_CHANNEL_ID)
     print(atis_channel)
-
+    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="VATSIM Data API 📡📡"))
     while True:
         data = get_data()
         vt_controllers = get_controller(data)
