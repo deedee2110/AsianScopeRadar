@@ -4,6 +4,7 @@ import json
 import discord
 import requests
 from dateutil.parser import parse
+import random
 
 intent = discord.Intents.default()
 intent.message_content = True
@@ -145,7 +146,8 @@ def get_atis_embed(atis):
 async def send_hi_message(controller, channel):
     await channel.send(
         f"Hi ! {controller['name']} are online on {controller['callsign']} at {controller['frequency']} !!!")
-    await asyncio.sleep(5)
+    randomtime=(random.random()*5)
+    await asyncio.sleep(5+randomtime)
     await channel.purge(limit=1)
 
 
@@ -154,6 +156,11 @@ async def send_offline_message(controller, channel):
     await asyncio.sleep(5)
     await channel.purge(limit=1)
 
+async def update_embed(channel, new_embed):
+    # Fetch the last message in the channel
+    last_message = await channel.history(limit=1).flatten()
+    last_message = last_message[0] if last_message else None
+    await last_message.edit(embed=new_embed)
 
 @client.event
 async def on_ready():
@@ -164,7 +171,7 @@ async def on_ready():
     print(con_channel)
     atis_channel = client.get_channel(ATIS_CHANNEL_ID)
     print(atis_channel)
-    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="VATSIM Data API 📡📡"))
+    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="VATSIM Data API 📡 📡"))
     while True:
         data = get_data()
         vt_controllers = get_controller(data)
@@ -208,10 +215,14 @@ async def on_ready():
         atis = vt_atis
         # If NewControllers or Controller Offline
         if new_controllers or offline_controllers or initial or controller_updated :
-            # Delete Previous Embed
-            await con_channel.purge(limit=1)
             embed = get_controller_embed(controllers)
-            await con_channel.send(embed=embed)
+            # Try to edit latest embed
+            try:
+                await update_embed(con_channel, embed)
+            except:
+                # Delete Previous Embed
+                await con_channel.purge(limit=1)
+                await con_channel.send(embed=embed)
             # Send Hi ! -Name- are online on -Callsign- at -Frequency- !!! and Bye ! -Callsign- -Name- went offline
             tasks = ([send_hi_message(controller, con_channel) for controller in new_controllers] +
                      [send_offline_message(controller, con_channel) for controller in offline_controllers])
@@ -220,10 +231,14 @@ async def on_ready():
             new_controllers = []
         if new_atis or offline_atis or initial or atis_updated:
             initial = False
-            # Delete Previous Embed
-            await atis_channel.purge(limit=1)
             embed = get_atis_embed(atis)
-            await atis_channel.send(embed=embed)
+            # Try to edit latest embed
+            try:
+                await update_embed(atis_channel, embed)
+            except:
+                # Delete Previous Embed
+                await atis_channel.purge(limit=1)
+                await atis_channel.send(embed=embed)
             offline_atis = []
             new_atis = []
 
