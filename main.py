@@ -82,7 +82,7 @@ def get_regional_indicator(atis_code):
 
 def get_controller(data):
     controllers = data['controllers']
-    vt_controllers = [controller for controller in controllers if controller['callsign'].startswith(CALLSIGN)]
+    vt_controllers = [controller for controller in controllers if controller['callsign'].startswith(CALLSIGN) and int(controller['facility'])>=1]
     return vt_controllers
 
 
