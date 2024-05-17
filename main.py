@@ -143,17 +143,18 @@ def get_atis_embed(atis):
     return embed
 
 
-async def send_hi_message(controller, channel):
-    await channel.send(
+async def send_hi_message(controller, channel, index):
+    try:
+        await channel.send(
         f"Hi ! {controller['name']} are online on {controller['callsign']} at {controller['frequency']} !!!")
-    randomtime=(random.random()*5)
-    await asyncio.sleep(5+randomtime)
-    await channel.purge(limit=1)
+        await asyncio.sleep(5+(index*2))
+        await channel.purge(limit=1)
+    except: pass
 
 
-async def send_offline_message(controller, channel):
+async def send_offline_message(controller, channel, index):
     await channel.send(f"Bye ! {controller['callsign']} - {controller['name']} went offline")
-    await asyncio.sleep(5)
+    await asyncio.sleep(5+(index*2))
     await channel.purge(limit=1)
 
 async def update_embed(channel, new_embed):
@@ -173,75 +174,79 @@ async def on_ready():
     print(atis_channel)
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="VATSIM Data API 📡 📡"))
     while True:
-        data = get_data()
-        vt_controllers = get_controller(data)
-        vt_atis = get_atis(data)
+        try:
+            data = get_data()
+            vt_controllers = get_controller(data)
+            vt_atis = get_atis(data)
+            for controller in vt_controllers:
+                if controller['callsign'] not in [c['callsign'] for c in controllers]:
+                    print(f"{controller['callsign']} is online")
+                    new_controllers.append(controller)
 
-        for controller in vt_controllers:
-            if controller['callsign'] not in [c['callsign'] for c in controllers]:
-                print(f"{controller['callsign']} is online")
-                new_controllers.append(controller)
+            for atis_info in vt_atis:
+                if atis_info['callsign'] not in [a['callsign'] for a in atis]:
+                    print(f"{atis_info['callsign']} has ATIS")
+                    new_atis.append(atis_info)
 
-        for atis_info in vt_atis:
-            if atis_info['callsign'] not in [a['callsign'] for a in atis]:
-                print(f"{atis_info['callsign']} has ATIS")
-                new_atis.append(atis_info)
+            for controller in controllers:
+                if controller['callsign'] not in [vc['callsign'] for vc in vt_controllers]:
+                    print(f"{controller['callsign']} is offline")
+                    offline_controllers.append(controller)
 
-        for controller in controllers:
-            if controller['callsign'] not in [vc['callsign'] for vc in vt_controllers]:
-                print(f"{controller['callsign']} is offline")
-                offline_controllers.append(controller)
+            for atis_info in atis:
+                if atis_info['callsign'] not in [va['callsign'] for va in vt_atis]:
+                    print(f"{atis_info['callsign']} has no ATIS")
+                    offline_atis.append(atis_info)
 
-        for atis_info in atis:
-            if atis_info['callsign'] not in [va['callsign'] for va in vt_atis]:
-                print(f"{atis_info['callsign']} has no ATIS")
-                offline_atis.append(atis_info)
-
-        print("✔️✔️✔️")
-        atis_updated = False
-        for prev, curr in zip(atis, vt_atis):
-            if prev['atis_code'] != curr['atis_code']:
-                atis_updated = True
-                break
-        controller_updated = False
-        for prev, curr in zip(controllers, vt_controllers):
-            if prev['frequency'] != curr['frequency']:
-                controller_updated = True
-                break
-            elif prev['text_atis'] != curr['text_atis']:
-                controller_updated = True
-                break
-        controllers = vt_controllers
-        atis = vt_atis
-        # If NewControllers or Controller Offline
-        if new_controllers or offline_controllers or initial or controller_updated :
-            embed = get_controller_embed(controllers)
-            # Try to edit latest embed
-            try:
-                await update_embed(con_channel, embed)
-            except:
-                # Delete Previous Embed
-                await con_channel.purge(limit=1)
-                await con_channel.send(embed=embed)
-            # Send Hi ! -Name- are online on -Callsign- at -Frequency- !!! and Bye ! -Callsign- -Name- went offline
-            tasks = ([send_hi_message(controller, con_channel) for controller in new_controllers] +
-                     [send_offline_message(controller, con_channel) for controller in offline_controllers])
-            await asyncio.gather(*tasks)
-            offline_controllers = []
-            new_controllers = []
-        if new_atis or offline_atis or initial or atis_updated:
-            initial = False
-            embed = get_atis_embed(atis)
-            # Try to edit latest embed
-            try:
-                await update_embed(atis_channel, embed)
-            except:
-                # Delete Previous Embed
-                await atis_channel.purge(limit=1)
-                await atis_channel.send(embed=embed)
-            offline_atis = []
-            new_atis = []
-
+            print("✔️✔️✔️")
+            atis_updated = False
+            for prev, curr in zip(atis, vt_atis):
+                if prev['atis_code'] != curr['atis_code']:
+                    atis_updated = True
+                    break
+            controller_updated = False
+            for prev, curr in zip(controllers, vt_controllers):
+                if prev['frequency'] != curr['frequency']:
+                    controller_updated = True
+                    break
+                elif prev['text_atis'] != curr['text_atis']:
+                    controller_updated = True
+                    break
+            controllers = vt_controllers
+            atis = vt_atis
+            # If NewControllers or Controller Offline
+            if new_controllers or offline_controllers or initial or controller_updated :
+                embed = get_controller_embed(controllers)
+                # Try to edit latest embed
+                try:
+                    await update_embed(con_channel, embed)
+                except:
+                    # Delete Previous Embed
+                    await con_channel.purge(limit=1)
+                    await con_channel.send(embed=embed)
+                # Send Hi ! -Name- are online on -Callsign- at -Frequency- !!! and Bye ! -Callsign- -Name- went offline
+                tasks = (
+                        [send_hi_message(controller, con_channel, index) for index, controller in
+                         enumerate(new_controllers)] +
+                        [send_offline_message(controller, con_channel, index) for index, controller in
+                         enumerate(offline_controllers)]
+                )
+                await asyncio.gather(*tasks)
+                offline_controllers = []
+                new_controllers = []
+            if new_atis or offline_atis or initial or atis_updated:
+                initial = False
+                embed = get_atis_embed(atis)
+                # Try to edit latest embed
+                try:
+                    await update_embed(atis_channel, embed)
+                except:
+                    # Delete Previous Embed
+                    await atis_channel.purge(limit=1)
+                    await atis_channel.send(embed=embed)
+                offline_atis = []
+                new_atis = []
+        except: pass
         await asyncio.sleep(20)
 
 
